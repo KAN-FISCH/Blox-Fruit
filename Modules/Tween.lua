@@ -131,4 +131,5 @@ function TweenModule:To(targetCFrame, customSpeed, onComplete)
     return true
 end
 
+_G.BFTween = TweenModule
 return TweenModule

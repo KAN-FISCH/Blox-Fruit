@@ -4,7 +4,15 @@ local Player = Players.LocalPlayer
 
 local TweenModule = nil
 pcall(function()
-    TweenModule = loadstring(readfile("Blox Fruit Script/Modules/Tween.lua"))()
+    if _G.BFTween then
+        TweenModule = _G.BFTween
+    elseif readfile and isfile and isfile("Blox Fruit Script/Modules/Tween.lua") then
+        TweenModule = loadstring(readfile("Blox Fruit Script/Modules/Tween.lua"))()
+    elseif readfile and isfile and isfile("Modules/Tween.lua") then
+        TweenModule = loadstring(readfile("Modules/Tween.lua"))()
+    elseif game and game.HttpGet then
+        TweenModule = loadstring(game:HttpGet("https://raw.githubusercontent.com/KAN-FISCH/Blox-Fruit/refs/heads/main/Modules/Tween.lua"))()
+    end
 end)
 
 local CommF_ = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("CommF_")
