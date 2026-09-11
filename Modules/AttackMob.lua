@@ -19,50 +19,15 @@ local AttackConfig = getgenv().BFAttackConfig
 
 local Net = nil
 local Global = nil
-local CombatFramework = nil
-local activeController = nil
-
 pcall(function()
     Net = require(ReplicatedStorage:WaitForChild("Modules"):WaitForChild("Net"))
 end)
 pcall(function()
     Global = require(ReplicatedStorage:WaitForChild("Global"))
 end)
-pcall(function()
-    local CameraShaker = require(ReplicatedStorage:WaitForChild("Util"):WaitForChild("CameraShaker"))
-    if CameraShaker and CameraShaker.Stop then
-        CameraShaker:Stop()
-    end
-end)
-pcall(function()
-    local cf = Player.PlayerScripts:FindFirstChild("CombatFramework") or Player.PlayerScripts:FindFirstChild("CombatFramework", true)
-    if not cf then
-        cf = ReplicatedStorage:FindFirstChild("CombatFramework", true)
-    end
-    if cf then
-        CombatFramework = require(cf)
-        local getupv = getupvalues or debug.getupvalues
-        if getupv and CombatFramework then
-            for _, v in pairs(getupv(CombatFramework)) do
-                if type(v) == "table" and rawget(v, "activeController") then
-                    activeController = v.activeController
-                    break
-                end
-            end
-        end
-    end
-end)
 
-RunService.Stepped:Connect(function()
-    if AttackConfig.Enabled and activeController then
-        activeController.timeToNextAttack = 0
-        activeController.hitboxMagnitude = 60
-        activeController.attacking = false
-        activeController.blocking = false
-        activeController.timeToNextBlock = 0
-        activeController.increment = 3
-    end
-    if AttackConfig.Enabled and Global then
+pcall(function()
+    if Global then
         Global.checkHits = function() end
         Global.tapCooldown = 0
     end
@@ -87,13 +52,20 @@ Player.CharacterAdded:Connect(function()
 end)
 
 local RegisterHit = nil
+local RegisterAttack = nil
+
 if Net then
     pcall(function()
         RegisterHit = Net:RemoteEvent("RegisterHit", true) or Net:RemoteEvent("RegisterHit")
+        RegisterAttack = Net:RemoteEvent("RegisterAttack", true) or Net:RemoteEvent("RegisterAttack")
     end)
 end
+
 if not RegisterHit then
     RegisterHit = ReplicatedStorage:FindFirstChild("RE/RegisterHit", true)
+end
+if not RegisterAttack then
+    RegisterAttack = ReplicatedStorage:FindFirstChild("RE/RegisterAttack", true)
 end
 
 local attackThread = nil
@@ -101,18 +73,23 @@ local secretToken = nil
 
 if RegisterHit then
     attackThread = coroutine.create(function()
-        pcall(function()
+        local ok, err = pcall(function()
             local myId = tostring(Player.UserId)
             local threadId = tostring(coroutine.running())
             secretToken = myId:sub(2, 4) .. threadId:sub(11, 15)
+
             RegisterHit:FireServer(secretToken)
+
             while true do
                 local hitPart, hitList = coroutine.yield()
-                if hitPart then
-                    RegisterHit:FireServer(hitPart, hitList or {}, nil, secretToken)
+                if hitPart and hitList and #hitList > 0 then
+                    RegisterHit:FireServer(hitPart, hitList, nil, secretToken)
                 end
             end
         end)
+        if not ok then
+            warn("[AttackMob] Attack thread warning:", err)
+        end
     end)
     coroutine.resume(attackThread)
 end
@@ -143,18 +120,18 @@ local function GetTargets()
                     if dist <= AttackConfig.Distance then
                         if not primaryPart then
                             primaryPart = head
-                        else
-                            if AttackConfig.MultiPartHits then
-                                local torso = enemy:FindFirstChild("UpperTorso") or enemy:FindFirstChild("Torso")
-                                local partsToHit = { head, torso, hrp }
-                                for _, part in ipairs(partsToHit) do
-                                    if part then
-                                        table.insert(targets, { enemy, part })
-                                    end
+                        end
+
+                        if AttackConfig.MultiPartHits then
+                            local torso = enemy:FindFirstChild("UpperTorso") or enemy:FindFirstChild("Torso")
+                            local partsToHit = { head, torso, hrp }
+                            for _, part in ipairs(partsToHit) do
+                                if part then
+                                    table.insert(targets, { enemy, part })
                                 end
-                            else
-                                table.insert(targets, { enemy, head })
                             end
+                        else
+                            table.insert(targets, { enemy, head })
                         end
                     end
                 end
@@ -178,6 +155,10 @@ local function GetEquippedOrBestWeapon()
 
     local equipped = myChar:FindFirstChildOfClass("Tool")
     if equipped then
+        local wType = equipped:GetAttribute("WeaponType")
+        if wType == "Melee" or wType == "Sword" or wType == "Gun" then
+            return equipped
+        end
         return equipped
     end
 
@@ -224,50 +205,36 @@ function AttackMob:Hit()
     if not tool then return false end
 
     local primaryPart, targets = GetTargets()
-    if not primaryPart then
+    if not primaryPart or #targets == 0 then
         return false
+    end
+
+    if RegisterAttack then
+        pcall(function()
+            RegisterAttack:FireServer(0)
+        end)
     end
 
     local burstCount = math.max(1, tonumber(AttackConfig.DamageMultiplier) or 3)
 
     for _ = 1, burstCount do
-        if activeController and activeController.attack then
-            pcall(function()
-                activeController.timeToNextAttack = 0
-                activeController.hitboxMagnitude = 60
-                activeController:attack()
-            end)
-        end
-
+        local sent = false
         if Global and type(Global.SendHitsToServer) == "function" then
-            pcall(function()
+            local ok = pcall(function()
                 Global.SendHitsToServer(primaryPart, targets)
             end)
+            sent = ok
         end
 
-        if attackThread and coroutine.status(attackThread) == "suspended" then
+        if not sent and attackThread and coroutine.status(attackThread) == "suspended" then
             pcall(function()
                 coroutine.resume(attackThread, primaryPart, targets)
             end)
-        end
-        if RegisterHit then
+        elseif not sent and RegisterHit then
             pcall(function()
-                RegisterHit:FireServer(primaryPart, targets)
+                RegisterHit:FireServer(primaryPart, targets, nil, secretToken)
             end)
-            if secretToken then
-                pcall(function()
-                    RegisterHit:FireServer(primaryPart, targets, nil, secretToken)
-                end)
-            end
         end
-
-        pcall(function()
-            if tool then
-                tool:Activate()
-            end
-            game:GetService("VirtualUser"):CaptureController()
-            game:GetService("VirtualUser"):Button1Down(Vector2.new(1280, 672))
-        end)
     end
 
     return true
