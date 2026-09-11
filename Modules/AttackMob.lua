@@ -7,7 +7,7 @@ getgenv().BFAttackConfig = getgenv().BFAttackConfig or {
     Enabled = true,
     Distance = 65,
     AttackDelay = 0,
-    DamageMultiplier = 3,
+    DamageMultiplier = 5,
     MultiPartHits = true,
     AttackMobs = true,
     AttackPlayers = false,
@@ -215,7 +215,7 @@ function AttackMob:Hit()
         end)
     end
 
-    local burstCount = math.max(1, tonumber(AttackConfig.DamageMultiplier) or 3)
+    local burstCount = math.max(1, tonumber(AttackConfig.DamageMultiplier) or 5)
 
     for _ = 1, burstCount do
         local sent = false
