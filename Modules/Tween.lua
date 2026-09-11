@@ -4,7 +4,7 @@ local Players = game:GetService("Players")
 local Player = Players.LocalPlayer
 
 local TweenModule = {
-    Speed = 350,
+    Speed = 200,
     IsTweening = false,
     CurrentTween = nil,
     TelePart = nil,
@@ -114,7 +114,7 @@ function TweenModule:To(targetCFrame, customSpeed, onComplete)
     EnableNoClip()
     self.SetFloat(true)
 
-    local speed = tonumber(customSpeed) or self.Speed or 350
+    local speed = math.clamp(tonumber(customSpeed) or self.Speed or 200, 10, 200)
     local duration = distance / math.max(1, speed)
 
     local part = Instance.new("Part")
