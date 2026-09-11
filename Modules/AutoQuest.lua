@@ -15,7 +15,15 @@ pcall(function()
     end
 end)
 
-local CommF_ = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("CommF_")
+local CommF_ = nil
+pcall(function()
+    CommF_ = ReplicatedStorage:WaitForChild("Remotes", 5):WaitForChild("CommF_", 5)
+end)
+if not CommF_ then
+    pcall(function()
+        CommF_ = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("CommF_")
+    end)
+end
 
 local AutoQuest = {
     IsTakingQuest = false,
