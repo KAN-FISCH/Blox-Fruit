@@ -24,6 +24,11 @@ if not CommF_ then
         CommF_ = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("CommF_")
     end)
 end
+if not CommF_ then
+    pcall(function()
+        CommF_ = ReplicatedStorage:FindFirstChild("CommF_", true)
+    end)
+end
 
 local AutoQuest = {
     IsTakingQuest = false,
@@ -177,11 +182,11 @@ function AutoQuest:TakeQuest(onComplete)
 
         local distToNpc = (qData.CFrameQuest.Position - hrp.Position).Magnitude
 
-        if distToNpc > 15 then
+        if distToNpc > 30 then
             if TweenModule then
                 TweenModule:To(qData.CFrameQuest)
                 local timeout = 0
-                while distToNpc > 15 and timeout < 100 and AutoQuest.IsTakingQuest and getgenv().AutoFarmConfig and getgenv().AutoFarmConfig.AutoFarm do
+                while distToNpc > 30 and timeout < 100 and AutoQuest.IsTakingQuest and getgenv().AutoFarmConfig and getgenv().AutoFarmConfig.AutoFarm do
                     task.wait(0.1)
                     timeout = timeout + 1
                     char = Player.Character
@@ -198,10 +203,11 @@ function AutoQuest:TakeQuest(onComplete)
             end
         end
 
-        if distToNpc <= 15 then
+        if distToNpc <= 30 then
             if TweenModule and TweenModule.IsTweening then
                 TweenModule:Stop()
             end
+            hrp.CFrame = qData.CFrameQuest
             pcall(function()
                 CommF_:InvokeServer("StartQuest", qData.NameQuest, qData.LevelQuest)
             end)
