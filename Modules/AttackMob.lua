@@ -78,15 +78,12 @@ if RegisterHit then
             local threadId = tostring(coroutine.running())
             secretToken = myId:sub(2, 4) .. threadId:sub(11, 15)
 
+            RegisterHit:FireServer(secretToken)
+
             while true do
                 local hitPart, hitList = coroutine.yield()
                 if hitPart and hitList and #hitList > 0 then
-                    pcall(function()
-                        RegisterHit:FireServer(hitPart, hitList)
-                    end)
-                    pcall(function()
-                        RegisterHit:FireServer(hitPart, hitList, nil, secretToken)
-                    end)
+                    RegisterHit:FireServer(hitPart, hitList, nil, secretToken)
                 end
             end
         end)
@@ -120,7 +117,7 @@ local function GetTargets()
                 local head = enemy:FindFirstChild("Head") or hrp
                 if hrp and head then
                     local dist = (hrp.Position - myHrp.Position).Magnitude
-                    if dist <= (tonumber(AttackConfig.Distance) or 65) then
+                    if dist <= AttackConfig.Distance then
                         if not primaryPart then
                             primaryPart = head
                         end
@@ -158,31 +155,26 @@ local function GetEquippedOrBestWeapon()
 
     local equipped = myChar:FindFirstChildOfClass("Tool")
     if equipped then
+        local wType = equipped:GetAttribute("WeaponType")
+        if wType == "Melee" or wType == "Sword" or wType == "Gun" then
+            return equipped
+        end
         return equipped
     end
 
     if AttackConfig.AutoEquipWeapon then
         local backpack = Player:FindFirstChild("Backpack")
         if backpack then
-            local priorities = AttackConfig.WeaponPriority or {"Melee", "Sword"}
-            for _, prefType in ipairs(priorities) do
+            for _, prefType in ipairs(AttackConfig.WeaponPriority) do
                 for _, tool in ipairs(backpack:GetChildren()) do
-                    if tool:IsA("Tool") then
-                        local wType = tool:GetAttribute("WeaponType") or tool.ToolTip or ""
-                        local tName = tool.Name
-                        local isMatch = string.find(string.lower(wType), string.lower(prefType))
-                            or string.find(string.lower(tName), string.lower(prefType))
-                            or (prefType == "Melee" and (tName == "Combat" or string.find(string.lower(tName), "karate") or string.find(string.lower(tName), "step") or string.find(string.lower(tName), "leg") or string.find(string.lower(tName), "claw")))
-
-                        if isMatch then
-                            pcall(function()
-                                local hum = myChar:FindFirstChildOfClass("Humanoid")
-                                if hum then
-                                    hum:EquipTool(tool)
-                                end
-                            end)
-                            return tool
-                        end
+                    if tool:IsA("Tool") and (tool:GetAttribute("WeaponType") == prefType or tool.ToolTip == prefType or string.find(string.lower(tool.Name), string.lower(prefType))) then
+                        pcall(function()
+                            local hum = myChar:FindFirstChildOfClass("Humanoid")
+                            if hum then
+                                hum:EquipTool(tool)
+                            end
+                        end)
+                        return tool
                     end
                 end
             end
@@ -212,16 +204,6 @@ function AttackMob:Hit()
     local tool = GetEquippedOrBestWeapon()
     if not tool then return false end
 
-    pcall(function()
-        tool:Activate()
-    end)
-    pcall(function()
-        local vu = game:GetService("VirtualUser")
-        vu:CaptureController()
-        vu:Button1Down(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
-        vu:Button1Up(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
-    end)
-
     local primaryPart, targets = GetTargets()
     if not primaryPart or #targets == 0 then
         return false
@@ -244,18 +226,13 @@ function AttackMob:Hit()
             sent = ok
         end
 
-        if not sent and RegisterHit then
-            pcall(function()
-                RegisterHit:FireServer(primaryPart, targets)
-            end)
-            pcall(function()
-                RegisterHit:FireServer(primaryPart, targets, nil, secretToken)
-            end)
-        end
-
         if not sent and attackThread and coroutine.status(attackThread) == "suspended" then
             pcall(function()
                 coroutine.resume(attackThread, primaryPart, targets)
+            end)
+        elseif not sent and RegisterHit then
+            pcall(function()
+                RegisterHit:FireServer(primaryPart, targets, nil, secretToken)
             end)
         end
     end
