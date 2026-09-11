@@ -35,13 +35,19 @@ pcall(function()
     end
 end)
 pcall(function()
-    CombatFramework = require(Player.PlayerScripts:WaitForChild("CombatFramework"))
-    local getupv = getupvalues or debug.getupvalues
-    if getupv and CombatFramework then
-        for _, v in pairs(getupv(CombatFramework)) do
-            if type(v) == "table" and rawget(v, "activeController") then
-                activeController = v.activeController
-                break
+    local cf = Player.PlayerScripts:FindFirstChild("CombatFramework") or Player.PlayerScripts:FindFirstChild("CombatFramework", true)
+    if not cf then
+        cf = ReplicatedStorage:FindFirstChild("CombatFramework", true)
+    end
+    if cf then
+        CombatFramework = require(cf)
+        local getupv = getupvalues or debug.getupvalues
+        if getupv and CombatFramework then
+            for _, v in pairs(getupv(CombatFramework)) do
+                if type(v) == "table" and rawget(v, "activeController") then
+                    activeController = v.activeController
+                    break
+                end
             end
         end
     end
@@ -243,10 +249,16 @@ function AttackMob:Hit()
             pcall(function()
                 coroutine.resume(attackThread, primaryPart, targets)
             end)
-        elseif RegisterHit and secretToken then
+        end
+        if RegisterHit then
             pcall(function()
-                RegisterHit:FireServer(primaryPart, targets, nil, secretToken)
+                RegisterHit:FireServer(primaryPart, targets)
             end)
+            if secretToken then
+                pcall(function()
+                    RegisterHit:FireServer(primaryPart, targets, nil, secretToken)
+                end)
+            end
         end
 
         pcall(function()
