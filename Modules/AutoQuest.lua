@@ -133,21 +133,16 @@ function AutoQuest:GetQuestData(level)
 end
 
 function AutoQuest:HasQuest(questData)
-    local qGui = Player:FindFirstChild("PlayerGui") and Player.PlayerGui:FindFirstChild("Main") and Player.PlayerGui.Main:FindFirstChild("Quest")
-    if not qGui or not qGui.Visible then
-        return false
-    end
-    if questData then
-        local titleObj = qGui:FindFirstChild("Container") and qGui.Container:FindFirstChild("QuestTitle") and qGui.Container.QuestTitle:FindFirstChild("Title")
-        if titleObj and titleObj.Text ~= "" then
-            local text = string.lower(titleObj.Text)
-            local mon = string.lower(questData.NameMon or questData.Mon or "")
-            if mon ~= "" and not string.find(text, mon) then
-                return false
-            end
+    local has = false
+    pcall(function()
+        local pg = Player:FindFirstChild("PlayerGui") or Player.PlayerGui
+        local main = pg and pg:FindFirstChild("Main")
+        local qGui = main and main:FindFirstChild("Quest")
+        if qGui and qGui.Visible == true then
+            has = true
         end
-    end
-    return true
+    end)
+    return has
 end
 
 function AutoQuest:AbandonQuest()
