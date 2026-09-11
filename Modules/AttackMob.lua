@@ -33,6 +33,24 @@ pcall(function()
     end
 end)
 
+pcall(function()
+    local hook = hookfunction or replaceclosure
+    if hook then
+        local effect = ReplicatedStorage:FindFirstChild("Effect") or ReplicatedStorage:WaitForChild("Effect", 3)
+        local container = effect and (effect:FindFirstChild("Container") or effect:WaitForChild("Container", 3))
+        if container then
+            local death = container:FindFirstChild("Death")
+            if death then
+                pcall(function() hook(require(death), function() end) end)
+            end
+            local respawn = container:FindFirstChild("Respawn")
+            if respawn then
+                pcall(function() hook(require(respawn), function() end) end)
+            end
+        end
+    end
+end)
+
 local function EnsureBuddhaAoeCap()
     pcall(function()
         local char = Player.Character
