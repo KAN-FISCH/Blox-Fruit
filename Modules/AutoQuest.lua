@@ -138,8 +138,18 @@ function AutoQuest:HasQuest(questData)
         local pg = Player:FindFirstChild("PlayerGui") or Player.PlayerGui
         local main = pg and pg:FindFirstChild("Main")
         local qGui = main and main:FindFirstChild("Quest")
-        if qGui and qGui.Visible == true then
-            has = true
+        if qGui then
+            if qGui.Visible == true then
+                has = true
+            end
+            local container = qGui:FindFirstChild("Container")
+            if container and container.Visible == true then
+                local questTitle = container:FindFirstChild("QuestTitle")
+                local title = questTitle and questTitle:FindFirstChild("Title")
+                if title and title.Text ~= "" and not string.find(string.lower(title.Text), "^title") then
+                    has = true
+                end
+            end
         end
     end)
     return has
