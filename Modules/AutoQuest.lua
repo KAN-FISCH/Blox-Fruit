@@ -127,7 +127,9 @@ function AutoQuest:HasQuest(questData)
     if questData then
         local titleObj = qGui:FindFirstChild("Container") and qGui.Container:FindFirstChild("QuestTitle") and qGui.Container.QuestTitle:FindFirstChild("Title")
         if titleObj and titleObj.Text ~= "" then
-            if not string.find(titleObj.Text, questData.NameMon) and not string.find(titleObj.Text, questData.Mon) then
+            local text = string.lower(titleObj.Text)
+            local mon = string.lower(questData.NameMon or questData.Mon or "")
+            if mon ~= "" and not string.find(text, mon) then
                 return false
             end
         end
@@ -146,51 +148,63 @@ function AutoQuest:TakeQuest(onComplete)
     if not qData then return false end
 
     if self:HasQuest(qData) then
+        self.IsTakingQuest = false
         if onComplete then onComplete(qData) end
         return true
     end
 
-    if self:HasQuest() then
-        self:AbandonQuest()
-        task.wait(0.2)
+    if self.IsTakingQuest then
+        return false
     end
 
     self.IsTakingQuest = true
 
-    local function Accept()
-        pcall(function()
-            CommF_:InvokeServer("StartQuest", qData.NameQuest, qData.LevelQuest)
-        end)
-        task.wait(0.3)
-        self.IsTakingQuest = false
+    task.spawn(function()
+        local char = Player.Character
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        if not hrp then
+            AutoQuest.IsTakingQuest = false
+            return
+        end
+
+        local distToNpc = (qData.CFrameQuest.Position - hrp.Position).Magnitude
+
+        if distToNpc > 15 then
+            if TweenModule then
+                TweenModule:To(qData.CFrameQuest)
+                local timeout = 0
+                while distToNpc > 15 and timeout < 100 and AutoQuest.IsTakingQuest and getgenv().AutoFarmConfig and getgenv().AutoFarmConfig.AutoFarm do
+                    task.wait(0.1)
+                    timeout = timeout + 1
+                    char = Player.Character
+                    hrp = char and char:FindFirstChild("HumanoidRootPart")
+                    if hrp then
+                        distToNpc = (qData.CFrameQuest.Position - hrp.Position).Magnitude
+                    else
+                        break
+                    end
+                end
+            else
+                hrp.CFrame = qData.CFrameQuest
+                task.wait(0.5)
+            end
+        end
+
+        if distToNpc <= 15 then
+            if TweenModule and TweenModule.IsTweening then
+                TweenModule:Stop()
+            end
+            pcall(function()
+                CommF_:InvokeServer("StartQuest", qData.NameQuest, qData.LevelQuest)
+            end)
+            task.wait(0.4)
+        end
+
+        AutoQuest.IsTakingQuest = false
         if onComplete then
             onComplete(qData)
         end
-    end
-
-    local char = Player.Character
-    local hrp = char and char:FindFirstChild("HumanoidRootPart")
-    if not hrp then
-        self.IsTakingQuest = false
-        return false
-    end
-
-    local distToNpc = (qData.CFrameQuest.Position - hrp.Position).Magnitude
-
-    if distToNpc <= 15 then
-        Accept()
-        return true
-    end
-
-    if TweenModule then
-        TweenModule:To(qData.CFrameQuest, nil, function()
-            Accept()
-        end)
-    else
-        hrp.CFrame = qData.CFrameQuest
-        task.wait(0.5)
-        Accept()
-    end
+    end)
 
     return true
 end
