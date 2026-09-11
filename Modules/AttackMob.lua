@@ -5,10 +5,10 @@ local Player = Players.LocalPlayer
 
 getgenv().BFAttackConfig = getgenv().BFAttackConfig or {
     Enabled = true,
-    Distance = 65,
+    Distance = 85,
     AttackDelay = 0,
     DamageMultiplier = 5,
-    MultiPartHits = true,
+    MultiPartHits = false,
     AttackMobs = true,
     AttackPlayers = false,
     AutoEquipWeapon = true,
@@ -131,7 +131,8 @@ local function GetTargets()
                                 end
                             end
                         else
-                            table.insert(targets, { enemy, head })
+                            local hitPart = hrp or head
+                            table.insert(targets, { enemy, hitPart })
                         end
                     end
                 end
@@ -217,23 +218,39 @@ function AttackMob:Hit()
 
     local burstCount = math.max(1, tonumber(AttackConfig.DamageMultiplier) or 5)
 
-    for _ = 1, burstCount do
-        local sent = false
-        if Global and type(Global.SendHitsToServer) == "function" then
-            local ok = pcall(function()
-                Global.SendHitsToServer(primaryPart, targets)
-            end)
-            sent = ok
-        end
+    local function sendHitBatch(tList)
+        if not tList or #tList == 0 then return end
+        local pPart = tList[1] and (tList[1][2] or tList[1][1]:FindFirstChild("Head")) or primaryPart
+        for _ = 1, burstCount do
+            local sent = false
+            if Global and type(Global.SendHitsToServer) == "function" then
+                local ok = pcall(function()
+                    Global.SendHitsToServer(pPart, tList)
+                end)
+                sent = ok
+            end
 
-        if not sent and attackThread and coroutine.status(attackThread) == "suspended" then
-            pcall(function()
-                coroutine.resume(attackThread, primaryPart, targets)
-            end)
-        elseif not sent and RegisterHit then
-            pcall(function()
-                RegisterHit:FireServer(primaryPart, targets, nil, secretToken)
-            end)
+            if not sent and attackThread and coroutine.status(attackThread) == "suspended" then
+                pcall(function()
+                    coroutine.resume(attackThread, pPart, tList)
+                end)
+            elseif not sent and RegisterHit then
+                pcall(function()
+                    RegisterHit:FireServer(pPart, tList, nil, secretToken)
+                end)
+            end
+        end
+    end
+
+    if #targets <= 6 then
+        sendHitBatch(targets)
+    else
+        for i = 1, #targets, 6 do
+            local batch = {}
+            for j = i, math.min(i + 5, #targets) do
+                table.insert(batch, targets[j])
+            end
+            sendHitBatch(batch)
         end
     end
 

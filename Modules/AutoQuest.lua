@@ -133,33 +133,63 @@ function AutoQuest:GetQuestData(level)
 end
 
 function AutoQuest:HasQuest(questData)
-    local has = false
+    local qData = questData or self:GetQuestData()
+    local text = ""
+    local isVisible = false
+
     pcall(function()
         local pg = Player:FindFirstChild("PlayerGui") or Player.PlayerGui
-        if pg then
-            local tqf = pg:FindFirstChild("TrackedQuestFrame")
-            if tqf then
-                if not (tqf:IsA("ScreenGui") and tqf.Enabled == false) then
-                    local frame = tqf:FindFirstChild("Frame")
-                    if frame and frame.Visible ~= false then
-                        local header = frame:FindFirstChild("header")
-                        if header and header.Visible ~= false then
-                            has = true
-                            return
-                        end
+        if not pg then return end
+
+        local tqf = pg:FindFirstChild("TrackedQuestFrame")
+        if tqf and (not tqf:IsA("ScreenGui") or tqf.Enabled ~= false) then
+            local frame = tqf:FindFirstChild("Frame")
+            if frame and frame.Visible ~= false then
+                isVisible = true
+                for _, desc in ipairs(frame:GetDescendants()) do
+                    if desc:IsA("TextLabel") and desc.Visible ~= false and desc.Text and desc.Text ~= "" then
+                        text = text .. " " .. desc.Text
                     end
                 end
             end
+        end
 
-            local main = pg:FindFirstChild("Main")
-            local qGui = main and main:FindFirstChild("Quest")
-            if qGui and qGui.Visible == true then
-                has = true
-                return
+        local main = pg:FindFirstChild("Main")
+        local qGui = main and main:FindFirstChild("Quest")
+        if qGui and qGui.Visible == true then
+            isVisible = true
+            for _, desc in ipairs(qGui:GetDescendants()) do
+                if desc:IsA("TextLabel") and desc.Visible ~= false and desc.Text and desc.Text ~= "" then
+                    text = text .. " " .. desc.Text
+                end
             end
         end
     end)
-    return has
+
+    if not isVisible then
+        return false
+    end
+
+    if qData then
+        local monName = string.lower(qData.NameMon or "")
+        local questName = string.lower(qData.NameQuest or "")
+        local qText = string.lower(text)
+
+        local isMatch = false
+        if monName ~= "" and string.find(qText, monName, 1, true) then
+            isMatch = true
+        elseif questName ~= "" and string.find(qText, questName, 1, true) then
+            isMatch = true
+        end
+
+        if qText ~= "" and #qText > 2 and not isMatch then
+            self:AbandonQuest()
+            task.wait(0.2)
+            return false
+        end
+    end
+
+    return true
 end
 
 function AutoQuest:AbandonQuest()
