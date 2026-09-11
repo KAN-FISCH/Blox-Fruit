@@ -136,19 +136,26 @@ function AutoQuest:HasQuest(questData)
     local has = false
     pcall(function()
         local pg = Player:FindFirstChild("PlayerGui") or Player.PlayerGui
-        local main = pg and pg:FindFirstChild("Main")
-        local qGui = main and main:FindFirstChild("Quest")
-        if qGui then
-            if qGui.Visible == true then
-                has = true
-            end
-            local container = qGui:FindFirstChild("Container")
-            if container and container.Visible == true then
-                local questTitle = container:FindFirstChild("QuestTitle")
-                local title = questTitle and questTitle:FindFirstChild("Title")
-                if title and title.Text ~= "" and not string.find(string.lower(title.Text), "^title") then
-                    has = true
+        if pg then
+            local tqf = pg:FindFirstChild("TrackedQuestFrame")
+            if tqf then
+                if not (tqf:IsA("ScreenGui") and tqf.Enabled == false) then
+                    local frame = tqf:FindFirstChild("Frame")
+                    if frame and frame.Visible ~= false then
+                        local header = frame:FindFirstChild("header")
+                        if header and header.Visible ~= false then
+                            has = true
+                            return
+                        end
+                    end
                 end
+            end
+
+            local main = pg:FindFirstChild("Main")
+            local qGui = main and main:FindFirstChild("Quest")
+            if qGui and qGui.Visible == true then
+                has = true
+                return
             end
         end
     end)
