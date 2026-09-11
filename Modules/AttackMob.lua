@@ -5,10 +5,10 @@ local Player = Players.LocalPlayer
 
 getgenv().BFAttackConfig = getgenv().BFAttackConfig or {
     Enabled = true,
-    Distance = 85,
+    Distance = 65,
     AttackDelay = 0,
     DamageMultiplier = 5,
-    MultiPartHits = false,
+    MultiPartHits = true,
     AttackMobs = true,
     AttackPlayers = false,
     AutoEquipWeapon = true,
@@ -30,24 +30,6 @@ pcall(function()
     if Global then
         Global.checkHits = function() end
         Global.tapCooldown = 0
-    end
-end)
-
-pcall(function()
-    local hook = hookfunction or replaceclosure
-    if hook then
-        local effect = ReplicatedStorage:FindFirstChild("Effect") or ReplicatedStorage:WaitForChild("Effect", 3)
-        local container = effect and (effect:FindFirstChild("Container") or effect:WaitForChild("Container", 3))
-        if container then
-            local death = container:FindFirstChild("Death")
-            if death then
-                pcall(function() hook(require(death), function() end) end)
-            end
-            local respawn = container:FindFirstChild("Respawn")
-            if respawn then
-                pcall(function() hook(require(respawn), function() end) end)
-            end
-        end
     end
 end)
 
@@ -149,8 +131,7 @@ local function GetTargets()
                                 end
                             end
                         else
-                            local hitPart = hrp or head
-                            table.insert(targets, { enemy, hitPart })
+                            table.insert(targets, { enemy, head })
                         end
                     end
                 end
@@ -236,39 +217,23 @@ function AttackMob:Hit()
 
     local burstCount = math.max(1, tonumber(AttackConfig.DamageMultiplier) or 5)
 
-    local function sendHitBatch(tList)
-        if not tList or #tList == 0 then return end
-        local pPart = tList[1] and (tList[1][2] or tList[1][1]:FindFirstChild("Head")) or primaryPart
-        for _ = 1, burstCount do
-            local sent = false
-            if Global and type(Global.SendHitsToServer) == "function" then
-                local ok = pcall(function()
-                    Global.SendHitsToServer(pPart, tList)
-                end)
-                sent = ok
-            end
-
-            if not sent and attackThread and coroutine.status(attackThread) == "suspended" then
-                pcall(function()
-                    coroutine.resume(attackThread, pPart, tList)
-                end)
-            elseif not sent and RegisterHit then
-                pcall(function()
-                    RegisterHit:FireServer(pPart, tList, nil, secretToken)
-                end)
-            end
+    for _ = 1, burstCount do
+        local sent = false
+        if Global and type(Global.SendHitsToServer) == "function" then
+            local ok = pcall(function()
+                Global.SendHitsToServer(primaryPart, targets)
+            end)
+            sent = ok
         end
-    end
 
-    if #targets <= 6 then
-        sendHitBatch(targets)
-    else
-        for i = 1, #targets, 6 do
-            local batch = {}
-            for j = i, math.min(i + 5, #targets) do
-                table.insert(batch, targets[j])
-            end
-            sendHitBatch(batch)
+        if not sent and attackThread and coroutine.status(attackThread) == "suspended" then
+            pcall(function()
+                coroutine.resume(attackThread, primaryPart, targets)
+            end)
+        elseif not sent and RegisterHit then
+            pcall(function()
+                RegisterHit:FireServer(primaryPart, targets, nil, secretToken)
+            end)
         end
     end
 

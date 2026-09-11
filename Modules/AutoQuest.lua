@@ -133,22 +133,24 @@ function AutoQuest:GetQuestData(level)
 end
 
 function AutoQuest:HasQuest(questData)
-    local qData = questData or self:GetQuestData()
-    local text = ""
-    local isVisible = false
-
+    local has = false
+    local questText = ""
     pcall(function()
         local pg = Player:FindFirstChild("PlayerGui") or Player.PlayerGui
         if not pg then return end
 
         local tqf = pg:FindFirstChild("TrackedQuestFrame")
-        if tqf and (not tqf:IsA("ScreenGui") or tqf.Enabled ~= false) then
+        if tqf and not (tqf:IsA("ScreenGui") and tqf.Enabled == false) then
             local frame = tqf:FindFirstChild("Frame")
             if frame and frame.Visible ~= false then
-                isVisible = true
+                local header = frame:FindFirstChild("header")
+                if header and header.Visible ~= false then
+                    has = true
+                end
                 for _, desc in ipairs(frame:GetDescendants()) do
-                    if desc:IsA("TextLabel") and desc.Visible ~= false and desc.Text and desc.Text ~= "" then
-                        text = text .. " " .. desc.Text
+                    if desc:IsA("TextLabel") and desc.Text and desc.Text ~= "" then
+                        questText = questText .. " " .. desc.Text
+                        has = true
                     end
                 end
             end
@@ -157,34 +159,42 @@ function AutoQuest:HasQuest(questData)
         local main = pg:FindFirstChild("Main")
         local qGui = main and main:FindFirstChild("Quest")
         if qGui and qGui.Visible == true then
-            isVisible = true
+            has = true
+            local titleObj = qGui:FindFirstChild("Container")
+                and qGui.Container:FindFirstChild("QuestTitle")
+                and qGui.Container.QuestTitle:FindFirstChild("Title")
+            if titleObj and titleObj.Text and titleObj.Text ~= "" then
+                questText = questText .. " " .. titleObj.Text
+            end
             for _, desc in ipairs(qGui:GetDescendants()) do
-                if desc:IsA("TextLabel") and desc.Visible ~= false and desc.Text and desc.Text ~= "" then
-                    text = text .. " " .. desc.Text
+                if desc:IsA("TextLabel") and desc.Text and desc.Text ~= "" then
+                    questText = questText .. " " .. desc.Text
                 end
             end
         end
     end)
 
-    if not isVisible then
+    if not has then
         return false
     end
 
-    if qData then
-        local monName = string.lower(qData.NameMon or "")
-        local questName = string.lower(qData.NameQuest or "")
-        local qText = string.lower(text)
+    if questText ~= "" and questData and questData.NameMon then
+        local lowerText = string.lower(questText)
+        local lowerMon = string.lower(questData.NameMon)
+        local lowerMonMen = string.gsub(lowerMon, "man", "men")
+        local lowerQuest = questData.NameQuest and string.lower(questData.NameQuest) or ""
 
-        local isMatch = false
-        if monName ~= "" and string.find(qText, monName, 1, true) then
-            isMatch = true
-        elseif questName ~= "" and string.find(qText, questName, 1, true) then
-            isMatch = true
+        local matches = false
+        if string.find(lowerText, lowerMon, 1, true) then
+            matches = true
+        elseif string.find(lowerText, lowerMonMen, 1, true) then
+            matches = true
+        elseif lowerQuest ~= "" and string.find(lowerText, lowerQuest, 1, true) then
+            matches = true
         end
 
-        if qText ~= "" and #qText > 2 and not isMatch then
+        if not matches then
             self:AbandonQuest()
-            task.wait(0.2)
             return false
         end
     end
